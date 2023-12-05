@@ -2,7 +2,7 @@ class "Tracker"
 require "MapPositionGOS"
 
 function Tracker:__init()
-    PrintChat("C41T CampTracker V0.6 (BETA) loaded")
+    PrintChat("C41T CampTracker V0.7 (BETA) loaded")
     self:LoadMenu()
     Callback.Add(
         "Tick",
@@ -19,8 +19,6 @@ function Tracker:__init()
 end
 
 function Tracker:LoadMenu()
-    self.JTracker 	= {}
-    self.JTrackerList = {}
 
     --JungleTrackerTimersBlueSide
     self.Blue1Pos = Vector(3734.9819335938, 52.791561126709, 7890.0)
@@ -50,9 +48,16 @@ function Tracker:LoadMenu()
     self.Krug2Pos = Vector(6317.0922851562, 56.47679901123, 12146.458007812)
     self.Krug2Timer = -1000
 
+    --Scuttles
+    self.Crab1Pos = Vector(10423, -62, 5181)
+    self.Crab1Timer = -1000
+    self.Crab2Pos = Vector(4397, -66, 9610)
+    self.Crab2Timer = -1000
+
     --Objectives
     self.BaronPosition = Vector(4951, -71, 10432)
     self.BaronTimer = -1000
+    self.HeraldTimer = -1000
     self.DragonPosition = Vector(9789, -71, 4398)
     self.DragonTimer = -1000
 
@@ -62,17 +67,18 @@ function Tracker:LoadMenu()
     self.LastCampDiedPos = nil
     self.DieTimer = 10
     self.ParseTick = 10
+    self.SoulTimer = 10
 end
 
-local Monsters = {}
 local GameTimer = Game.Timer
 local DrawText = Draw.Text
 local DrawColor = Draw.Color
 local ObjCount = Game.ObjectCount
 local GameObj = Game.Object
 local sqrt = math.sqrt
-local HeroCount = GameHeroCount
-local Heroes = GameHero
+local HeroCount = Game.HeroCount
+local Heroes = Game.Hero
+local Mteam = 300
 
 local function GetDistance(pos1, pos2)
 	if(pos1 == nil or pos2 == nil) then return "Error" end
@@ -81,11 +87,35 @@ local function GetDistance(pos1, pos2)
 	return sqrt(dx*dx + dz*dz)
 end
 
+local AllyList = {}
+local CheckAlly = false
+local function GetAllies()
+    for i = 1, HeroCount() do
+        local Ally = Heroes(i)
+        if Ally.team == myHero.team then
+            AllyList[i] = Ally
+        end
+    end
+    return nil
+end
+
+local EnemyList = {}
+local CheckEnemy = false
+local function GetEnemies()
+    for i = 1, HeroCount() do
+        local Enemy = Heroes(i)
+        if Enemy.team ~= myHero.team then
+            EnemyList[i] = Enemy
+        end
+    end
+    return nil
+end
+
 function Tracker:AlliesInRange(Position, Range)
     local Count = 0
-    for i = 1, HeroCount() do 
-		local Hero = Heroes(i)	
-        if Hero.team == myHero.team and Hero.dead == false then
+    for i = 1, #AllyList do 
+		local Hero = AllyList[i]
+        if Hero.dead == false then
             if GetDistance(Hero.pos, Position) < Range then
                 Count = Count + 1
             end
@@ -94,108 +124,137 @@ function Tracker:AlliesInRange(Position, Range)
     return Count
 end
 
-function Tracker:GetAllJungleMinions()
-    local JgMonsters = {}
+local Monsters = {}
+--local min = 16000
+--local max = 0
+function Tracker:ParseMonsters()
+    local count = 0
     if self.ParseTick then
         if(GameTimer() > self.ParseTick) then
-            for i = 0, ObjCount() do
+            for i = 1, #Monsters do
+                Monsters[i] = nil
+            end
+            for i = 1, 3000 do
                 local Object = GameObj(i)
-                if Object.team == 300 and Object.networkID and Object.maxHealth > 137 and (Object.totalDamage > 20 or Object.totalDamage == 7) then
-                    Monsters[Object.networkID] = Object
+                if Object.team == Mteam and Object.networkID and Object.maxHealth >= 110 and Object.ms >= 150 then
+                    --Needs more testing!
+                    --[[if i > max then
+                        max = i
+                    end
+                    if i < min then
+                        min = i
+                    end
+                    if GetDistance(Object.pos, Game.mousePos()) < 1500 then
+                        print(Object.charName)
+                    end]]
+                    Monsters[i] = Object
                 end
             end
-            self.ParseTick = GameTimer() + 15 --Saves every 15 seconds (For better performence needs more testing with different dragons!)
+            self.ParseTick = GameTimer() + 0 --Saves every 10 seconds (For better performence needs more testing with different dragons!)
         end
     else
         self.ParseTick = GameTimer()
     end
-    JgMonsters = Monsters
-    return JgMonsters
+    --print("Min: ", min)
+    --print("Max: ", max)
+    --print(Game.mousePos().x, ",", Game.mousePos().y, ",", Game.mousePos().z)
+    return nil
 end
 
 function Tracker:CampAlive(Position, Range, MonsterName)
     local Count = 0
-    local MinionList = Tracker:GetAllJungleMinions()
+    local MinionList = Monsters
     for i, Minion in pairs(MinionList) do	
-        if Minion.team == 300 and Minion.dead == false then
+        if Minion.charName:find(MonsterName) and Minion.dead == false then
             if GetDistance(Minion.pos, Position) < Range then
-                if Minion.charName:find(MonsterName) then
-                    Count = Count + 1
-                end
+                Count = Count + 1
             end
         end
     end
     return Count
 end
 
-function Tracker:GetJungleTracker()
-    local JTracker = {}
-    local JungleList = Tracker:GetAllJungleMinions()
-    for _, Minion in pairs(JungleList) do
-        JTracker[Minion.networkID] = {
-            Object		= Minion,
-            Position 	= Minion.pos,
-            --SpawnTime	= self:GetMonsterSpawnTime(Minion),
-            --Timer		= self:GetMonsterTimer(Minion),
-        }
-    end
-    return JTracker
-end
-
 function Tracker:TimersBeforeSpawn()
     if self.BaronTimer < 0 and GameTimer() < 1200 and GameTimer() > 1110 then
         self.BaronTimer = GameTimer() + 90
     end
-    --print(self.DragonTimer)
+    if self.HeraldTimer < 0 and GameTimer() < 480 and GameTimer() > 390 then
+        self.HeraldTimer = GameTimer() + 90
+    end
     if self.DragonTimer < 0 and GameTimer() < 300 and GameTimer() > 210 then
         self.DragonTimer = GameTimer() + 90
     end
+    if GameTimer() < 210 and GameTimer() > 120 then
+        if self.Crab1Timer < 0 then
+            local Time = GameTimer() + 90
+            self.Crab1Timer = Time
+            self.Crab2Timer = Time
+        end
+    end
     if GameTimer() < 90 then
         if self.Blue1Timer < 0 then
-            self.Blue1Timer = 90 - GameTimer()
-        end
-        if self.Blue2Timer < 0 then
-            self.Blue2Timer = 90 - GameTimer()
-        end
-        if self.Red1Timer < 0 then
-            self.Red1Timer = 90 - GameTimer()
-        end
-        if self.Red2Timer < 0 then
-            self.Red2Timer = 90 - GameTimer()
-        end
-        if self.Wolf1Timer < 0 then
-            self.Wolf1Timer = 90 - GameTimer()
-        end
-        if self.Wolf2Timer < 0 then
-            self.Wolf2Timer = 90 - GameTimer()
-        end
-        if self.Chicken1Timer < 0 then
-            self.Chicken1Timer = 90 - GameTimer()
-        end
-        if self.Chicken2Timer < 0 then
-            self.Chicken2Timer = 90 - GameTimer()
-        end
-        if self.Krug1Timer < 0 then
-            self.Krug1Timer = 90 - GameTimer()
-        end
-        if self.Krug2Timer < 0 then
-            self.Krug2Timer = 90 - GameTimer()
+            local Time = 90 - GameTimer()
+            self.Blue1Timer = Time
+            self.Blue2Timer = Time
+            self.Red1Timer = Time
+            self.Red2Timer = Time
+            self.Wolf1Timer = Time
+            self.Wolf2Timer = Time
+            self.Chicken1Timer = Time
+            self.Chicken2Timer = Time
+            self.Krug1Timer = Time
+            self.Krug2Timer = Time
         end
     end
     if GameTimer() < 102 then
         if self.Gromp1Timer < 0 then
-            self.Gromp1Timer = 102 - GameTimer()
-        end
-        if self.Gromp2Timer < 0 then
-            self.Gromp2Timer = 102 - GameTimer()
+            local Time = 102 - GameTimer()
+            self.Gromp1Timer = Time
+            self.Gromp2Timer = Time
         end
     end
 end
 
+local Soul = false
+function Tracker:CheckSoul()
+    if Soul == false then
+        if self.SoulTimer then
+            if self.SoulTimer < GameTimer() then
+                for i = 1, myHero.buffCount do
+                    local buff = myHero:GetBuff(i)
+        
+                    if buff.count ~= 0 and buff.type == 1 then
+                        if buff.name:find("Dragon") and buff.name:find("Soul") and buff.name:find("Preview") == nil then
+                            Soul = true
+                        end
+                    end
+                end
+                local Enemy = EnemyList[1]
+                if Enemy then
+                    for i = 1, Enemy.buffCount do
+                        local buff = Enemy:GetBuff(i)
+            
+                        if buff.count ~= 0 and buff.type == 1 then
+                            if buff.name:find("Dragon") and buff.name:find("Soul") and buff.name:find("Preview") == nil then
+                                Soul = true
+                            end
+                        end
+                    end
+                end
+                self.SoulTimer = GameTimer() + 15
+            end
+        else
+            self.SoulTimer = GameTimer()
+        end
+    end
+    return nil
+end
+
+local secondHerald = false
 function Tracker:GetJTimerList()
     local JTimerList = {}
-    for _, Element in pairs(self.JTracker) do
-        local Minion 		= Element.Object
+    for _, Minion in pairs(Monsters) do
+        --local Minion 		= Element.Object
         --local Timer 		= Element.Timer
         if Minion.dead then
             if self.BaronTimer < GameTimer() and Minion.charName:find("Baron") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
@@ -208,13 +267,47 @@ function Tracker:GetJTimerList()
                     end
                 end
             end
+            if self.HeraldTimer < GameTimer() and Minion.charName:find("Herald") and secondHerald == false then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3780.6279296875 52.463195800781 6443.98388671889
+                if GetDistance(Minion.pos, self.BaronPosition) < 2000 then
+                    if Minion.visible then
+                        secondHerald = true
+                        self.HeraldTimer = GameTimer() + 360
+                    else
+                        secondHerald = true
+                        self.HeraldTimer = GameTimer() + 360
+                    end
+                end
+            end
             if self.DragonTimer < GameTimer() and Minion.charName:find("Dragon") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
                 --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3780.6279296875 52.463195800781 6443.98388671889
                 if GetDistance(Minion.pos, self.DragonPosition) < 2000 and self:CampAlive(self.DragonPosition, 2000, "Dragon") == 0 then
+                    self.DragonTimer = GameTimer() + 300
+                end
+            end
+            if self.Crab1Timer < GameTimer() and Minion.charName == "Sru_Crab" then
+                --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3734.9819335938 52.791561126709 52.791561126709
+                if GetDistance(Minion.pos, self.Crab1Pos) < 2500 then
                     if Minion.visible then
-                        self.DragonTimer = GameTimer() + 300
+                        self.Crab1Timer = GameTimer() + 150
                     else
-                        self.DragonTimer = GameTimer() + 300
+                        self.Crab1Timer = GameTimer() + 150
+                        if self:AlliesInRange(self.Crab1Pos, 2000) == 0 then
+                            self.LastEnemyCamp = "Crab1"
+                        end
+                    end
+                end
+            end
+            if self.Crab2Timer < GameTimer() and Minion.charName == "Sru_Crab" then
+                --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3734.9819335938 52.791561126709 52.791561126709
+                if GetDistance(Minion.pos, self.Crab2Pos) < 2500 then
+                    if Minion.visible then
+                        self.Crab2Timer = GameTimer() + 150
+                    else
+                        self.Crab2Timer = GameTimer() + 150
+                        if self:AlliesInRange(self.Crab2Pos, 2000) == 0 then
+                            self.LastEnemyCamp = "Crab2"
+                        end
                     end
                 end
             end
@@ -459,8 +552,8 @@ function Tracker:DrawCampTimer()
         end
     end
     if --[[self.DrawJungleTimers.Value == 1]] 1 == 1 then
-        if self.BaronTimer > GameTimer() + 1 then
-            local Timer = self.BaronTimer - GameTimer()
+        if self.HeraldTimer > GameTimer() + 1 and GameTimer() < 1170 and self.BaronTimer < 0 then
+            local Timer = self.HeraldTimer - GameTimer()
             local MinionPos 	= self.BaronPosition
             local MapPos		= MinionPos:ToMM()
             local R, G, B = 255, 255, 255
@@ -471,9 +564,26 @@ function Tracker:DrawCampTimer()
                 R, G, B = 131, 235, 52
             end
             DrawText(string.format("%.0f", Timer), 20, MapPos.x-10, MapPos.y-12, DrawColor(255,R,G,B))
+        else
+            if self.BaronTimer > GameTimer() + 1 then
+                local Timer = self.BaronTimer - GameTimer()
+                local MinionPos 	= self.BaronPosition
+                local MapPos		= MinionPos:ToMM()
+                local R, G, B = 255, 255, 255
+                if 15 > Timer - (GetDistance(MinionPos, myHero.pos)* ExtraDist2Camp) / myHero.ms then
+                    R, G, B = 235, 168, 52
+                end
+                if 3 > Timer - (GetDistance(MinionPos, myHero.pos)* ExtraDist2Camp) / myHero.ms then
+                    R, G, B = 131, 235, 52
+                end
+                DrawText(string.format("%.0f", Timer), 20, MapPos.x-10, MapPos.y-12, DrawColor(255,R,G,B))
+            end
         end
-        if self.DragonTimer > GameTimer() + 1 then
+        if self.DragonTimer > GameTimer() + 1 or (Soul == true and self.DragonTimer + 60 > GameTimer() + 1) then
             local Timer = self.DragonTimer - GameTimer()
+            if Soul == true then
+                Timer = Timer + 60
+            end
             local MinionPos 	= self.DragonPosition
             local MapPos		= MinionPos:ToMM()
             local R, G, B = 255, 255, 255
@@ -484,6 +594,73 @@ function Tracker:DrawCampTimer()
                 R, G, B = 131, 235, 52
             end
             DrawText(string.format("%.0f", Timer), 20, MapPos.x-10, MapPos.y-12, DrawColor(255,R,G,B))
+        end
+        if GameTimer() > 270 then
+            if self.Crab1Timer > GameTimer() + 1 or self.Crab2Timer > GameTimer() + 1 then
+                local Timer = self.Crab1Timer - GameTimer()
+                if self.Crab2Timer > self.Crab1Timer then
+                    Timer = self.Crab2Timer - GameTimer()
+                end
+                local MinionPos 	= self.Crab1Pos
+                local MapPos		= MinionPos:ToMM()
+                local MinionPos2 	= self.Crab2Pos
+                local MapPos2		= MinionPos2:ToMM()
+                local R, G, B = 255, 255, 255
+                local R2, G2, B2 = 255, 255, 255
+                if self.LastEnemyCamp == "Crab1" then
+                    R, G, B = 235, 64, 52
+                end
+                if self.LastEnemyCamp == "Crab2" then
+                    R2, G2, B2 = 235, 64, 52
+                end
+                if 15 > Timer - (GetDistance(MinionPos, myHero.pos)* ExtraDist2Camp) / myHero.ms then
+                    R, G, B = 235, 168, 52
+                end
+                if 3 > Timer - (GetDistance(MinionPos, myHero.pos)* ExtraDist2Camp) / myHero.ms then
+                    R, G, B = 131, 235, 52
+                end
+                if 15 > Timer - (GetDistance(MinionPos2, myHero.pos)* ExtraDist2Camp) / myHero.ms then
+                    R2, G2, B2 = 235, 168, 52
+                end
+                if 3 > Timer - (GetDistance(MinionPos2, myHero.pos)* ExtraDist2Camp) / myHero.ms then
+                    R2, G2, B2 = 131, 235, 52
+                end
+                DrawText(string.format("%.0f", Timer), 20, MapPos.x-10, MapPos.y-24, DrawColor(255,R,G,B))
+                DrawText(string.format("%.0f", Timer), 20, MapPos2.x-10, MapPos2.y, DrawColor(255,R2,G2,B2))
+            end
+        else
+            if self.Crab1Timer > GameTimer() + 1 then
+                local Timer = self.Crab1Timer - GameTimer()
+                local MinionPos 	= self.Crab1Pos
+                local MapPos		= MinionPos:ToMM()
+                local R, G, B = 255, 255, 255
+                if self.LastEnemyCamp == "Crab1" then
+                    R, G, B = 235, 64, 52
+                end
+                if 15 > Timer - (GetDistance(MinionPos, myHero.pos)* ExtraDist2Camp) / myHero.ms then
+                    R, G, B = 235, 168, 52
+                end
+                if 3 > Timer - (GetDistance(MinionPos, myHero.pos)* ExtraDist2Camp) / myHero.ms then
+                    R, G, B = 131, 235, 52
+                end
+                DrawText(string.format("%.0f", Timer), 20, MapPos.x-10, MapPos.y-12, DrawColor(255,R,G,B))
+            end
+            if self.Crab2Timer > GameTimer() + 1 then
+                local Timer = self.Crab2Timer - GameTimer()
+                local MinionPos 	= self.Crab2Pos
+                local MapPos		= MinionPos:ToMM()
+                local R, G, B = 255, 255, 255
+                if self.LastEnemyCamp == "Crab2" then
+                    R, G, B = 235, 64, 52
+                end
+                if 15 > Timer - (GetDistance(MinionPos, myHero.pos)* ExtraDist2Camp) / myHero.ms then
+                    R, G, B = 235, 168, 52
+                end
+                if 3 > Timer - (GetDistance(MinionPos, myHero.pos)* ExtraDist2Camp) / myHero.ms then
+                    R, G, B = 131, 235, 52
+                end
+                DrawText(string.format("%.0f", Timer), 20, MapPos.x-10, MapPos.y-12, DrawColor(255,R,G,B))
+            end
         end
         if self.Blue1Timer > GameTimer() + 1 then
             local Timer = self.Blue1Timer - GameTimer()
@@ -681,10 +858,21 @@ function Tracker:DrawCampTimer()
 end
 
 function Tracker:Tick()
+    if CheckAlly == false then
+        GetAllies()
+        CheckAlly = true
+    end
+    if CheckEnemy == false then
+        GetEnemies()
+        CheckEnemy = true
+    end
+    if Soul == false then
+        self:CheckSoul()
+    end
 end
 
 function Tracker:Draw()
-    self.JTracker 	= self:GetJungleTracker()
+    self:ParseMonsters()
     self:TimersBeforeSpawn()
     self:GetJTimerList()
     self:DrawCampTimer()
@@ -695,7 +883,22 @@ function OnLoad()
 end
 
 --Not In Use
---[[function Tracker:ParseJungleMonsters()
+--[[
+
+function Tracker:GetJungleTracker()
+    local JTracker = {}
+    for _, Minion in pairs(Monsters) do
+        JTracker[Minion.networkID] = {
+            Object		= Minion,
+            --Position 	= Minion.pos,
+            --SpawnTime	= self:GetMonsterSpawnTime(Minion),
+            --Timer		= self:GetMonsterTimer(Minion),
+        }
+    end
+    return JTracker
+end
+    
+function Tracker:ParseJungleMonsters()
     if self.ParseTick then
         if (GameTimer() > self.ParseTick) then
             self.JungleMonsters = Tracker:GetAllJungleMinions()

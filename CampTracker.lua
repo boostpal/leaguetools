@@ -2,7 +2,7 @@ class "Tracker"
 require "MapPositionGOS"
 
 function Tracker:__init()
-    PrintChat("C41T CampTracker V0.5 (BETA) loaded")
+    PrintChat("C41T CampTracker V0.6 (BETA) loaded")
     self:LoadMenu()
     Callback.Add(
         "Tick",

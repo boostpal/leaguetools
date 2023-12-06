@@ -68,6 +68,8 @@ function Tracker:LoadMenu()
     self.DieTimer = 10
     self.ParseTick = 10
     self.SoulTimer = 10
+
+    local CampTracker = MenuElement({type = MENU, id = "CampTracker", name = "Camp Tracker V0.7"})
 end
 
 local GameTimer = Game.Timer
@@ -131,26 +133,23 @@ function Tracker:ParseMonsters()
     local count = 0
     if self.ParseTick then
         if(GameTimer() > self.ParseTick) then
-            for i = 1, #Monsters do
+            for i = 1,#Monsters do
                 Monsters[i] = nil
             end
             for i = 1, 3000 do
                 local Object = GameObj(i)
-                if Object.team == Mteam and Object.networkID and Object.maxHealth >= 110 and Object.ms >= 150 then
+                if Object.team == Mteam and Object.networkID and Object.maxHealth >= 110 then
                     --Needs more testing!
                     --[[if i > max then
                         max = i
                     end
                     if i < min then
                         min = i
-                    end
-                    if GetDistance(Object.pos, Game.mousePos()) < 1500 then
-                        print(Object.charName)
                     end]]
-                    Monsters[i] = Object
+                    Monsters[#Monsters+1] = Object
                 end
             end
-            self.ParseTick = GameTimer() + 0 --Saves every 10 seconds (For better performence needs more testing with different dragons!)
+            self.ParseTick = GameTimer() + 10 --Saves every 10 seconds (For better performence needs more testing with different dragons!)
         end
     else
         self.ParseTick = GameTimer()
@@ -252,284 +251,285 @@ end
 
 local secondHerald = false
 function Tracker:GetJTimerList()
-    local JTimerList = {}
-    for _, Minion in pairs(Monsters) do
-        --local Minion 		= Element.Object
-        --local Timer 		= Element.Timer
-        if Minion.dead then
-            if self.BaronTimer < GameTimer() and Minion.charName:find("Baron") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
-                --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3780.6279296875 52.463195800781 6443.98388671889
-                if GetDistance(Minion.pos, self.BaronPosition) < 2000 and self:CampAlive(self.BaronPosition, 2000, "Baron") == 0 then
-                    if Minion.visible then
-                        self.BaronTimer = GameTimer() + 360
-                    else
-                        self.BaronTimer = GameTimer() + 360
-                    end
-                end
-            end
-            if self.HeraldTimer < GameTimer() and Minion.charName:find("Herald") and secondHerald == false then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
-                --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3780.6279296875 52.463195800781 6443.98388671889
-                if GetDistance(Minion.pos, self.BaronPosition) < 2000 then
-                    if Minion.visible then
-                        secondHerald = true
-                        self.HeraldTimer = GameTimer() + 360
-                    else
-                        secondHerald = true
-                        self.HeraldTimer = GameTimer() + 360
-                    end
-                end
-            end
-            if self.DragonTimer < GameTimer() and Minion.charName:find("Dragon") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
-                --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3780.6279296875 52.463195800781 6443.98388671889
-                if GetDistance(Minion.pos, self.DragonPosition) < 2000 and self:CampAlive(self.DragonPosition, 2000, "Dragon") == 0 then
-                    self.DragonTimer = GameTimer() + 300
-                end
-            end
-            if self.Crab1Timer < GameTimer() and Minion.charName == "Sru_Crab" then
-                --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3734.9819335938 52.791561126709 52.791561126709
-                if GetDistance(Minion.pos, self.Crab1Pos) < 2500 then
-                    if Minion.visible then
-                        self.Crab1Timer = GameTimer() + 150
-                    else
-                        self.Crab1Timer = GameTimer() + 150
-                        if self:AlliesInRange(self.Crab1Pos, 2000) == 0 then
-                            self.LastEnemyCamp = "Crab1"
+    if #Monsters > 0 then
+        for i = 1, #Monsters do
+            local Minion 		= Monsters[i]
+            --local Timer 		= Element.Timer
+            if Minion.dead then
+                if self.BaronTimer < GameTimer() and Minion.charName:find("Baron") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                    --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3780.6279296875 52.463195800781 6443.98388671889
+                    if GetDistance(Minion.pos, self.BaronPosition) < 2000 and self:CampAlive(self.BaronPosition, 2000, "Baron") == 0 then
+                        if Minion.visible then
+                            self.BaronTimer = GameTimer() + 360
+                        else
+                            self.BaronTimer = GameTimer() + 360
                         end
                     end
                 end
-            end
-            if self.Crab2Timer < GameTimer() and Minion.charName == "Sru_Crab" then
-                --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3734.9819335938 52.791561126709 52.791561126709
-                if GetDistance(Minion.pos, self.Crab2Pos) < 2500 then
-                    if Minion.visible then
-                        self.Crab2Timer = GameTimer() + 150
-                    else
-                        self.Crab2Timer = GameTimer() + 150
-                        if self:AlliesInRange(self.Crab2Pos, 2000) == 0 then
-                            self.LastEnemyCamp = "Crab2"
+                if self.HeraldTimer < GameTimer() and Minion.charName:find("Herald") and secondHerald == false then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                    --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3780.6279296875 52.463195800781 6443.98388671889
+                    if GetDistance(Minion.pos, self.BaronPosition) < 2000 then
+                        if Minion.visible then
+                            secondHerald = true
+                            self.HeraldTimer = GameTimer() + 360
+                        else
+                            secondHerald = true
+                            self.HeraldTimer = GameTimer() + 360
                         end
                     end
                 end
-            end
-            if self.Blue1Timer < GameTimer() and Minion.charName == "SRU_Blue" then
-                --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3734.9819335938 52.791561126709 52.791561126709
-                if GetDistance(Minion.pos, self.Blue1Pos) < 2000 then
-                    if Minion.visible then
-                        self.Blue1Timer = GameTimer() + 300
-                    else
-                        self.Blue1Timer = GameTimer() + 300
-                        if self:AlliesInRange(self.Blue1Pos, 2000) == 0 then
-                            self.LastEnemyCamp = "Blue1"
+                if self.DragonTimer < GameTimer() and Minion.charName:find("Dragon") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                    --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3780.6279296875 52.463195800781 6443.98388671889
+                    if GetDistance(Minion.pos, self.DragonPosition) < 2000 and self:CampAlive(self.DragonPosition, 2000, "Dragon") == 0 then
+                        self.DragonTimer = GameTimer() + 300
+                    end
+                end
+                if self.Crab1Timer < GameTimer() and Minion.charName == "Sru_Crab" then
+                    --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3734.9819335938 52.791561126709 52.791561126709
+                    if GetDistance(Minion.pos, self.Crab1Pos) < 2500 then
+                        if Minion.visible then
+                            self.Crab1Timer = GameTimer() + 150
+                        else
+                            self.Crab1Timer = GameTimer() + 150
+                            if self:AlliesInRange(self.Crab1Pos, 2000) == 0 then
+                                self.LastEnemyCamp = "Crab1"
+                            end
                         end
                     end
                 end
-            end
-            if self.Blue2Timer < GameTimer() and Minion.charName == "SRU_Blue" then
-                --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --11032.0 51.723670959473 7002.0
-                if GetDistance(Minion.pos, self.Blue2Pos) < 2000 then
-                    if Minion.visible then
-                        self.Blue2Timer = GameTimer() + 300
-                    else
-                        self.Blue2Timer = GameTimer() + 300
-                        if self:AlliesInRange(self.Blue2Pos, 2000) == 0 then
-                            self.LastEnemyCamp = "Blue2"
+                if self.Crab2Timer < GameTimer() and Minion.charName == "Sru_Crab" then
+                    --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3734.9819335938 52.791561126709 52.791561126709
+                    if GetDistance(Minion.pos, self.Crab2Pos) < 2500 then
+                        if Minion.visible then
+                            self.Crab2Timer = GameTimer() + 150
+                        else
+                            self.Crab2Timer = GameTimer() + 150
+                            if self:AlliesInRange(self.Crab2Pos, 2000) == 0 then
+                                self.LastEnemyCamp = "Crab2"
+                            end
                         end
                     end
                 end
-            end
-            if self.Wolf1Timer < GameTimer() and Minion.charName:find("wolf") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
-                --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3780.6279296875 52.463195800781 6443.98388671889
-                local MonstersAlive = self:CampAlive(self.Wolf1Pos, 2000, "wolf")
-                if GetDistance(Minion.pos, self.Wolf1Pos) < 2000 and MonstersAlive == 0 then
-                    if self.LastCampDied == "Wolf1" then
-                        self.LastCampDied = nil
-                        self.LastCampDiedPos = nil
-                    end
-                    if Minion.visible then
-                        self.Wolf1Timer = GameTimer() + 135
-                    else
-                        self.Wolf1Timer = GameTimer() + 135
-                        if self:AlliesInRange(self.Wolf1Pos, 2000) == 0 then
-                            self.LastEnemyCamp = "Wolf1"
-                        end
-                    end
-                else
-                    if Minion.visible == false and GetDistance(Minion.pos, self.Wolf1Pos) < 2000 and self:AlliesInRange(self.Wolf1Pos, 2000) == 0 and MonstersAlive < 3 and MonstersAlive > 0 then
-                        self.LastCampDied = "Wolf1"
-                        self.LastCampDiedPos = self.Wolf1Pos
-                    end
-                end
-            end
-            if self.Wolf2Timer < GameTimer() and Minion.charName:find("wolf") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
-                --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --11008.0 62.131362915039 8386.0
-                local MonstersAlive = self:CampAlive(self.Wolf2Pos , 2000, "wolf")
-                if GetDistance(Minion.pos, self.Wolf2Pos ) < 2000 and MonstersAlive == 0 then
-                    if self.LastCampDied == "Wolf2" then
-                        self.LastCampDied = nil
-                        self.LastCampDiedPos = nil
-                    end
-                    if Minion.visible then
-                        self.Wolf2Timer = GameTimer() + 135
-                    else
-                        self.Wolf2Timer = GameTimer() + 135
-                        if self:AlliesInRange(self.Wolf2Pos , 2000) == 0 then
-                            self.LastEnemyCamp = "Wolf2"
-                        end
-                    end
-                else
-                    if Minion.visible == false and GetDistance(Minion.pos, self.Wolf2Pos ) < 2000 and self:AlliesInRange(self.Wolf2Pos , 2000) == 0 and MonstersAlive < 3 and MonstersAlive > 0 then
-                        self.LastCampDied = "Wolf2"
-                        self.LastCampDiedPos = self.Wolf2Pos 
-                    end
-                end
-            end
-            if self.Gromp1Timer < GameTimer() and Minion.charName == "SRU_Gromp" then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
-                --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
-                if GetDistance(Minion.pos, self.Gromp1Pos) < 2000 then
-                    if Minion.visible then
-                        self.Gromp1Timer = GameTimer() + 135
-                    else
-                        self.Gromp1Timer = GameTimer() + 135
-                        if self:AlliesInRange(self.Gromp1Pos, 2000) == 0 then
-                            self.LastEnemyCamp = "Gromp1"
+                if self.Blue1Timer < GameTimer() and Minion.charName == "SRU_Blue" then
+                    --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3734.9819335938 52.791561126709 52.791561126709
+                    if GetDistance(Minion.pos, self.Blue1Pos) < 2000 then
+                        if Minion.visible then
+                            self.Blue1Timer = GameTimer() + 300
+                        else
+                            self.Blue1Timer = GameTimer() + 300
+                            if self:AlliesInRange(self.Blue1Pos, 2000) == 0 then
+                                self.LastEnemyCamp = "Blue1"
+                            end
                         end
                     end
                 end
-            end
-            if self.Gromp2Timer < GameTimer() and Minion.charName == "SRU_Gromp" then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
-                --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
-                if GetDistance(Minion.pos, self.Gromp2Pos) < 2000 then
-                    if Minion.visible then
-                        self.Gromp2Timer = GameTimer() + 135
-                    else
-                        self.Gromp2Timer = GameTimer() + 135
-                        if self:AlliesInRange(self.Gromp2Pos, 2000) == 0 then
-                            self.LastEnemyCamp = "Gromp2"
+                if self.Blue2Timer < GameTimer() and Minion.charName == "SRU_Blue" then
+                    --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --11032.0 51.723670959473 7002.0
+                    if GetDistance(Minion.pos, self.Blue2Pos) < 2000 then
+                        if Minion.visible then
+                            self.Blue2Timer = GameTimer() + 300
+                        else
+                            self.Blue2Timer = GameTimer() + 300
+                            if self:AlliesInRange(self.Blue2Pos, 2000) == 0 then
+                                self.LastEnemyCamp = "Blue2"
+                            end
                         end
                     end
                 end
-            end
-            if self.Krug1Timer < GameTimer() and Minion.charName:find("Krug") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
-                --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
-                local MonstersAlive = self:CampAlive(self.Krug1Pos, 2000, "Krug")
-                if GetDistance(Minion.pos, self.Krug1Pos) < 2000 and MonstersAlive == 0 then
-                    if self.LastCampDied == "Krug1" then
-                        self.LastCampDied = nil
-                        self.LastCampDiedPos = nil
-                    end
-                    if Minion.visible then
-                        self.Krug1Timer = GameTimer() + 135
-                    else
-                        self.Krug1Timer = GameTimer() + 135
-                        if self:AlliesInRange(self.Krug1Pos, 2000) == 0 then
-                            self.LastEnemyCamp = "Krug1"
+                if self.Wolf1Timer < GameTimer() and Minion.charName:find("wolf") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                    --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --3780.6279296875 52.463195800781 6443.98388671889
+                    local MonstersAlive = self:CampAlive(self.Wolf1Pos, 2000, "wolf")
+                    if GetDistance(Minion.pos, self.Wolf1Pos) < 2000 and MonstersAlive == 0 then
+                        if self.LastCampDied == "Wolf1" then
+                            self.LastCampDied = nil
+                            self.LastCampDiedPos = nil
                         end
-                    end
-                else
-                    if Minion.visible == false and GetDistance(Minion.pos, self.Krug1Pos) < 2000 and self:AlliesInRange(self.Krug1Pos, 2000) == 0 and MonstersAlive < 2 and MonstersAlive > 0 then
-                        self.LastCampDied = "Krug1"
-                        self.LastCampDiedPos = self.Krug1Pos
-                    end
-                end
-            end
-            if self.Krug2Timer < GameTimer() and Minion.charName:find("Krug") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
-                --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
-                local MonstersAlive = self:CampAlive(self.Krug2Pos, 2000, "Krug")
-                if GetDistance(Minion.pos, self.Krug2Pos) < 2000 and MonstersAlive == 0 then
-                    if self.LastCampDied == "Krug2" then
-                        self.LastCampDied = nil
-                        self.LastCampDiedPos = nil
-                    end
-                    if Minion.visible then
-                        self.Krug2Timer = GameTimer() + 135
-                    else
-                        self.Krug2Timer = GameTimer() + 135
-                        if self:AlliesInRange(self.Krug2Pos, 2000) == 0 then
-                            self.LastEnemyCamp = "Krug2"
+                        if Minion.visible then
+                            self.Wolf1Timer = GameTimer() + 135
+                        else
+                            self.Wolf1Timer = GameTimer() + 135
+                            if self:AlliesInRange(self.Wolf1Pos, 2000) == 0 then
+                                self.LastEnemyCamp = "Wolf1"
+                            end
                         end
-                    end
-                else
-                    if Minion.visible == false and GetDistance(Minion.pos, self.Krug2Pos) < 2000 and self:AlliesInRange(self.Krug2Pos, 2000) == 0 and MonstersAlive < 2 and MonstersAlive > 0 then
-                        self.LastCampDied = "Krug2"
-                        self.LastCampDiedPos = self.Krug2Pos
-                    end
-                end
-            end
-            if self.Red1Timer < GameTimer() and Minion.charName == "SRU_Red" then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
-                --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
-                if GetDistance(Minion.pos, self.Red1Pos) < 2000 then
-                    if Minion.visible then
-                        self.Red1Timer = GameTimer() + 300
                     else
-                        self.Red1Timer = GameTimer() + 300
-                        if self:AlliesInRange(self.Red1Pos, 2000) == 0 then
-                            self.LastEnemyCamp = "Red1"
+                        if Minion.visible == false and GetDistance(Minion.pos, self.Wolf1Pos) < 2000 and self:AlliesInRange(self.Wolf1Pos, 2000) == 0 and MonstersAlive < 3 and MonstersAlive > 0 then
+                            self.LastCampDied = "Wolf1"
+                            self.LastCampDiedPos = self.Wolf1Pos
                         end
                     end
                 end
-            end
-            if self.Red2Timer < GameTimer() and Minion.charName == "SRU_Red" then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
-                --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
-                if GetDistance(Minion.pos, self.Red2Pos) < 2000 then
-                    if Minion.visible then
-                        self.Red2Timer = GameTimer() + 300
+                if self.Wolf2Timer < GameTimer() and Minion.charName:find("wolf") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                    --print(Minion.pos.x, Minion.pos.y, Minion.pos.z) --11008.0 62.131362915039 8386.0
+                    local MonstersAlive = self:CampAlive(self.Wolf2Pos , 2000, "wolf")
+                    if GetDistance(Minion.pos, self.Wolf2Pos ) < 2000 and MonstersAlive == 0 then
+                        if self.LastCampDied == "Wolf2" then
+                            self.LastCampDied = nil
+                            self.LastCampDiedPos = nil
+                        end
+                        if Minion.visible then
+                            self.Wolf2Timer = GameTimer() + 135
+                        else
+                            self.Wolf2Timer = GameTimer() + 135
+                            if self:AlliesInRange(self.Wolf2Pos , 2000) == 0 then
+                                self.LastEnemyCamp = "Wolf2"
+                            end
+                        end
                     else
-                        self.Red2Timer = GameTimer() + 300
-                        if self:AlliesInRange(self.Red2Pos, 2000) == 0 then
-                            self.LastEnemyCamp = "Red2"
+                        if Minion.visible == false and GetDistance(Minion.pos, self.Wolf2Pos ) < 2000 and self:AlliesInRange(self.Wolf2Pos , 2000) == 0 and MonstersAlive < 3 and MonstersAlive > 0 then
+                            self.LastCampDied = "Wolf2"
+                            self.LastCampDiedPos = self.Wolf2Pos 
                         end
                     end
                 end
-            end
-            if self.Chicken1Timer < GameTimer() and Minion.charName:find("Razor") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
-                --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
-                local MonstersAlive = self:CampAlive(self.Chicken1Pos, 2000, "Razor")
-                if GetDistance(Minion.pos, self.Chicken1Pos) < 2000 and MonstersAlive == 0 then
-                    if self.LastCampDied == "Chicken1" then
-                        self.LastCampDied = nil
-                        self.LastCampDiedPos = nil
-                    end
-                    if Minion.visible then
-                        self.Chicken1Timer = GameTimer() + 135
-                    else
-                        self.Chicken1Timer = GameTimer() + 135
-                        if self:AlliesInRange(self.Chicken1Pos, 2000) == 0 then
-                            self.LastEnemyCamp = "Chicken1"
+                if self.Gromp1Timer < GameTimer() and Minion.charName == "SRU_Gromp" then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                    --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
+                    if GetDistance(Minion.pos, self.Gromp1Pos) < 2000 then
+                        if Minion.visible then
+                            self.Gromp1Timer = GameTimer() + 135
+                        else
+                            self.Gromp1Timer = GameTimer() + 135
+                            if self:AlliesInRange(self.Gromp1Pos, 2000) == 0 then
+                                self.LastEnemyCamp = "Gromp1"
+                            end
                         end
-                    end
-                else
-                    if Minion.visible == false and GetDistance(Minion.pos, self.Chicken1Pos) < 2000 and self:AlliesInRange(self.Chicken1Pos, 2000) == 0 and MonstersAlive < 6 and MonstersAlive > 0 then
-                        self.LastCampDied = "Chicken1"
-                        self.LastCampDiedPos = self.Chicken1Pos
                     end
                 end
-            end
-            if self.Chicken2Timer < GameTimer() and Minion.charName:find("Razor") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
-                --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
-                local MonstersAlive = self:CampAlive(self.Chicken2Pos, 2000, "Razor")
-                if GetDistance(Minion.pos, self.Chicken2Pos) < 2000 and MonstersAlive == 0 then
-                    if self.LastCampDied == "Chicken2" then
-                        self.LastCampDied = nil
-                        self.LastCampDiedPos = nil
-                    end
-                    if Minion.visible then
-                        self.Chicken2Timer = GameTimer() + 135
-                    else
-                        self.Chicken2Timer = GameTimer() + 135
-                        if self:AlliesInRange(self.Chicken2Pos, 2000) == 0 then
-                            self.LastEnemyCamp = "Chicken2"
+                if self.Gromp2Timer < GameTimer() and Minion.charName == "SRU_Gromp" then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                    --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
+                    if GetDistance(Minion.pos, self.Gromp2Pos) < 2000 then
+                        if Minion.visible then
+                            self.Gromp2Timer = GameTimer() + 135
+                        else
+                            self.Gromp2Timer = GameTimer() + 135
+                            if self:AlliesInRange(self.Gromp2Pos, 2000) == 0 then
+                                self.LastEnemyCamp = "Gromp2"
+                            end
                         end
                     end
-                else
-                    if Minion.visible == false and GetDistance(Minion.pos, self.Chicken2Pos) < 2000 and self:AlliesInRange(self.Chicken2Pos, 2000) == 0 and MonstersAlive < 6 and MonstersAlive > 0 then
-                        self.LastCampDied = "Chicken2"
-                        self.LastCampDiedPos = self.Chicken2Pos
+                end
+                if self.Krug1Timer < GameTimer() and Minion.charName:find("Krug") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                    --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
+                    local MonstersAlive = self:CampAlive(self.Krug1Pos, 2000, "Krug")
+                    if GetDistance(Minion.pos, self.Krug1Pos) < 2000 and MonstersAlive == 0 then
+                        if self.LastCampDied == "Krug1" then
+                            self.LastCampDied = nil
+                            self.LastCampDiedPos = nil
+                        end
+                        if Minion.visible then
+                            self.Krug1Timer = GameTimer() + 135
+                        else
+                            self.Krug1Timer = GameTimer() + 135
+                            if self:AlliesInRange(self.Krug1Pos, 2000) == 0 then
+                                self.LastEnemyCamp = "Krug1"
+                            end
+                        end
+                    else
+                        if Minion.visible == false and GetDistance(Minion.pos, self.Krug1Pos) < 2000 and self:AlliesInRange(self.Krug1Pos, 2000) == 0 and MonstersAlive < 2 and MonstersAlive > 0 then
+                            self.LastCampDied = "Krug1"
+                            self.LastCampDiedPos = self.Krug1Pos
+                        end
+                    end
+                end
+                if self.Krug2Timer < GameTimer() and Minion.charName:find("Krug") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                    --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
+                    local MonstersAlive = self:CampAlive(self.Krug2Pos, 2000, "Krug")
+                    if GetDistance(Minion.pos, self.Krug2Pos) < 2000 and MonstersAlive == 0 then
+                        if self.LastCampDied == "Krug2" then
+                            self.LastCampDied = nil
+                            self.LastCampDiedPos = nil
+                        end
+                        if Minion.visible then
+                            self.Krug2Timer = GameTimer() + 135
+                        else
+                            self.Krug2Timer = GameTimer() + 135
+                            if self:AlliesInRange(self.Krug2Pos, 2000) == 0 then
+                                self.LastEnemyCamp = "Krug2"
+                            end
+                        end
+                    else
+                        if Minion.visible == false and GetDistance(Minion.pos, self.Krug2Pos) < 2000 and self:AlliesInRange(self.Krug2Pos, 2000) == 0 and MonstersAlive < 2 and MonstersAlive > 0 then
+                            self.LastCampDied = "Krug2"
+                            self.LastCampDiedPos = self.Krug2Pos
+                        end
+                    end
+                end
+                if self.Red1Timer < GameTimer() and Minion.charName == "SRU_Red" then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                    --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
+                    if GetDistance(Minion.pos, self.Red1Pos) < 2000 then
+                        if Minion.visible then
+                            self.Red1Timer = GameTimer() + 300
+                        else
+                            self.Red1Timer = GameTimer() + 300
+                            if self:AlliesInRange(self.Red1Pos, 2000) == 0 then
+                                self.LastEnemyCamp = "Red1"
+                            end
+                        end
+                    end
+                end
+                if self.Red2Timer < GameTimer() and Minion.charName == "SRU_Red" then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                    --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
+                    if GetDistance(Minion.pos, self.Red2Pos) < 2000 then
+                        if Minion.visible then
+                            self.Red2Timer = GameTimer() + 300
+                        else
+                            self.Red2Timer = GameTimer() + 300
+                            if self:AlliesInRange(self.Red2Pos, 2000) == 0 then
+                                self.LastEnemyCamp = "Red2"
+                            end
+                        end
+                    end
+                end
+                if self.Chicken1Timer < GameTimer() and Minion.charName:find("Razor") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                    --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
+                    local MonstersAlive = self:CampAlive(self.Chicken1Pos, 2000, "Razor")
+                    if GetDistance(Minion.pos, self.Chicken1Pos) < 2000 and MonstersAlive == 0 then
+                        if self.LastCampDied == "Chicken1" then
+                            self.LastCampDied = nil
+                            self.LastCampDiedPos = nil
+                        end
+                        if Minion.visible then
+                            self.Chicken1Timer = GameTimer() + 135
+                        else
+                            self.Chicken1Timer = GameTimer() + 135
+                            if self:AlliesInRange(self.Chicken1Pos, 2000) == 0 then
+                                self.LastEnemyCamp = "Chicken1"
+                            end
+                        end
+                    else
+                        if Minion.visible == false and GetDistance(Minion.pos, self.Chicken1Pos) < 2000 and self:AlliesInRange(self.Chicken1Pos, 2000) == 0 and MonstersAlive < 6 and MonstersAlive > 0 then
+                            self.LastCampDied = "Chicken1"
+                            self.LastCampDiedPos = self.Chicken1Pos
+                        end
+                    end
+                end
+                if self.Chicken2Timer < GameTimer() and Minion.charName:find("Razor") then -- "SRU_Krug" "SRU_Red" "Sru_Crab" "SRU_Blue" "SRU_Murkwolf" "SRU_Razorbeak" "SRU_Gromp"
+                    --print(Minion.pos.x,",",Minion.pos.y,",",Minion.pos.z) --2102.0  51.777328491211 8454.0
+                    local MonstersAlive = self:CampAlive(self.Chicken2Pos, 2000, "Razor")
+                    if GetDistance(Minion.pos, self.Chicken2Pos) < 2000 and MonstersAlive == 0 then
+                        if self.LastCampDied == "Chicken2" then
+                            self.LastCampDied = nil
+                            self.LastCampDiedPos = nil
+                        end
+                        if Minion.visible then
+                            self.Chicken2Timer = GameTimer() + 135
+                        else
+                            self.Chicken2Timer = GameTimer() + 135
+                            if self:AlliesInRange(self.Chicken2Pos, 2000) == 0 then
+                                self.LastEnemyCamp = "Chicken2"
+                            end
+                        end
+                    else
+                        if Minion.visible == false and GetDistance(Minion.pos, self.Chicken2Pos) < 2000 and self:AlliesInRange(self.Chicken2Pos, 2000) == 0 and MonstersAlive < 6 and MonstersAlive > 0 then
+                            self.LastCampDied = "Chicken2"
+                            self.LastCampDiedPos = self.Chicken2Pos
+                        end
                     end
                 end
             end
         end
     end
-    return JTimerList
+    return nil
 end
 
 function Tracker:DrawCampTimer()
@@ -869,6 +869,8 @@ function Tracker:Tick()
     if Soul == false then
         self:CheckSoul()
     end
+
+    --print(#Monsters)
 end
 
 function Tracker:Draw()

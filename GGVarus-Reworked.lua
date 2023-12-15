@@ -1,6 +1,6 @@
 require("GGPrediction")
 
-local Version = 0.5
+local Version = 0.7
 
 local Menu, Utils, Champion
 
@@ -72,7 +72,7 @@ if UpdatedMenuChamps[myHero.charName] then
 	Menu.Harass.HarassOnToggle:PermaShow("Harass Toggle Key")
 else
 -- stylua: ignore start
-	Menu.m = MenuElement({name = "GG " .. myHero.charName .. " Reworked", id = 'GG' .. myHero.charName, type = _G.MENU})
+	Menu.m = MenuElement({name = "GG Varus Reworked", id = 'GG' .. myHero.charName, type = _G.MENU})
 	Menu.q = Menu.m:MenuElement({name = 'Q', id = 'q', type = _G.MENU})
 	Menu.w = Menu.m:MenuElement({name = 'W', id = 'w', type = _G.MENU})
 	Menu.e = Menu.m:MenuElement({name = 'E', id = 'e', type = _G.MENU})
@@ -83,7 +83,7 @@ else
 	-- stylua: ignore end
 end
 
-function Utils:Cast(spell, target, spellprediction, hitchance)
+function Utils:Cast(spell, target, spellprediction, hitchance, noHit)
 	if not self.CanUseSpell and (target or spellprediction) then
 		return false
 	end
@@ -101,7 +101,7 @@ function Utils:Cast(spell, target, spellprediction, hitchance)
 		return false
 	end
 	spellprediction:GetPrediction(target, myHero)
-	if spellprediction:CanHit(hitchance or HITCHANCE_HIGH) then
+	if spellprediction:CanHit(hitchance or HITCHANCE_HIGH) or noHit == 1 then
 		Control.CastSpell(spell, spellprediction.CastPosition)
 		self.CanUseSpell = false
 		return true
@@ -224,6 +224,8 @@ if Champion == nil and myHero.charName == "Varus" then
 	-- on tick
 	function Champion:OnTick()
 		--print(myHero.attackSpeed * 0.658)
+        --print(Champion:WStackDMG())
+		Champion:QKillSteal()
 		if self:HasQBuff() then
 			if not self.IsCombo and not self.IsHarass then
 				return
@@ -250,8 +252,70 @@ if Champion == nil and myHero.charName == "Varus" then
 		self:QLogic()
 	end
 	-- q can up
+	local QKSTarget = nil
+	local WToggle = false
+	function Champion:QKillSteal()
+		if not GG_Spell:IsReady(_Q, { q = 0.33, w = 0, e = 0.6, r = 0.33 }) then
+			return
+		end
+		local enemies = Utils:GetEnemyHeroes(1500)
+		local canusew = Game.CanUseSpell(_W) == 0
+		for i = 1, #enemies do
+			local enemy = enemies[i]
+			local WDMG = 0
+			local WStackDMG = Champion:WStackDMG(enemy)
+			local AR = (100 / (100 + enemy.armor))
+			local QRawDmg = myHero:GetSpellData(_Q).level * 55 - 40 + myHero.totalDamage * (myHero:GetSpellData(_Q).level * 0.05 + 1.2)
+			local QDmg = QRawDmg * AR
+			local EnemyHP = 100 * (enemy.health - QDmg + (10 * enemy.hpRegen)) / enemy.maxHealth
+			local MR = (100 / (100 + enemy.magicResist))
+			if canusew then
+				WDMG = Champion:WLevelDMG()
+			end
+			if EnemyHP < ((WDMG + WStackDMG)) * MR then
+				QKSTarget = enemy
+				Control.KeyDown(HK_Q)
+				break
+			end
+		end
+		local qtimer = self.Timer - GG_Spell.QTimer
+		if qtimer > 6 then
+			return
+		end
+		if QKSTarget then
+			QPrediction.Range = 925 + (qtimer * 0.5 * 700)
+			if canusew then
+				WToggle = true
+				Control.KeyDown(HK_W)
+				Control.KeyUp(HK_W)
+			end
+			local InRange = GGPrediction:GetDistance(QKSTarget.pos, self.Pos) < 1500
+			local WDMG = Champion:WLevelDMG()
+			local WStackDMG = Champion:WStackDMG(QKSTarget)
+			local AR = (100 / (100 + QKSTarget.armor))
+			local QRawDmg = myHero:GetSpellData(_Q).level * 55 - 40 + myHero.totalDamage * (myHero:GetSpellData(_Q).level * 0.05 + 1.2)
+			local QarmD = QRawDmg * AR
+			local QDmg = math.min(QarmD, QarmD * 0.60) * (1 + qtimer / 2.5)
+			local EnemyHP = 100 * (QKSTarget.health - QDmg + (4 * QKSTarget.hpRegen)) / QKSTarget.maxHealth
+			local MR = (100 / (100 + QKSTarget.magicResist))
+			local Killable = EnemyHP < (WStackDMG + (WDMG * 0.60) * (1 + qtimer / 4)) * MR
+			if InRange and (WToggle == true and qtimer < 2 and Killable == false) then return end
+			if GGPrediction:GetDistance(QKSTarget.pos, self.Pos) < QPrediction.Range - 50 then
+				WToggle = false
+				Utils:Cast(HK_Q, QKSTarget, QPrediction, MENU_Q_HITCHANCE + 1, 1)
+				--print("CastedQKS")
+				QKSTarget = nil
+				WAIT_STACKS = Game.Timer() + 1
+				return
+			end
+			if qtimer > 4.2 then
+				QKSTarget = nil
+			end
+		end
+	end
+
 	function Champion:QCanUp(target)
-		if target == nil then
+		if target == nil or QKSTarget ~= nil then
 			return false
 		end
 		QPrediction:GetPrediction(target, myHero)
@@ -287,16 +351,19 @@ if Champion == nil and myHero.charName == "Varus" then
 		end
 		return D
 	end
-	function Champion:WStackDMG()
+	function Champion:WStackDMG(enemy)
 		local D = 11.25
+		local Stakcs = 3
+		if enemy then
+			Stakcs = GG_Buff:GetBuffCount(enemy, "varuswdebuff")
+		end
 		if myHero:GetSpellData(_W).level > 0 then
-			D= 11.25 + 2.25 * myHero:GetSpellData(_W).level
+			D= (11.25 + 2.25 * myHero:GetSpellData(_W).level + ((myHero.ap / 100) * 6.75)) / 3 * Stakcs
 		end
 		--print(D)
 		return D
 	end
 	-- q buff logic
-	local WToggle = false
 	function Champion:QBuffLogic()
 		if not Control.IsKeyDown(HK_Q) then
 			return
@@ -315,25 +382,25 @@ if Champion == nil and myHero.charName == "Varus" then
 		local enemies = Utils:GetEnemyHeroes(QPrediction.Range)
 		if self:QCanUp(self.AttackTarget)
 			and GGPrediction:GetDistance(self.AttackTarget.pos, self.Pos) < 1545 then
-            local WStackDMG = Champion:WStackDMG()
+            local WStackDMG = Champion:WStackDMG(self.AttackTarget)
 			local AR = (100 / (100 + self.AttackTarget.armor))
 			local QarmD = QRawDmg * AR
 			local QDmg = math.min(QarmD, QarmD * 0.60) * (1 + qtimer / 2.5)
-			local EnemyHP = 100 * (self.AttackTarget.health - QarmD) / self.AttackTarget.maxHealth
-			local EnemyHP2 = 100 * (self.AttackTarget.health - QDmg) / self.AttackTarget.maxHealth
+			local EnemyHP = 100 * (self.AttackTarget.health - QarmD + (10 * self.AttackTarget.hpRegen)) / self.AttackTarget.maxHealth
+			local EnemyHP2 = 100 * (self.AttackTarget.health - QDmg + (4 * self.AttackTarget.hpRegen)) / self.AttackTarget.maxHealth
 			local MR = (100 / (100 + self.AttackTarget.magicResist))
 			if canusew and EnemyHP < ((WDMG + WStackDMG + 10) * 1.16) * MR then
 				WToggle = true
 				Control.KeyDown(HK_W)
 				Control.KeyUp(HK_W)
 			end
-			local InRange = GGPrediction:GetDistance(QPrediction.CastPosition, self.Pos) < 1545
+			local InRange = GGPrediction:GetDistance(self.AttackTarget.pos, self.Pos) < 1400
 			local Killable = EnemyHP2 < (WStackDMG + (WDMG * 0.60) * (1 + qtimer / 4)) * MR
 			if (#aaenemies == 0 and qtimer < MENU_Q_TIME) then return end
 			if InRange and (WToggle == true and qtimer < 2 and Killable == false) then return end
 			if GGPrediction:GetDistance(self.AttackTarget.pos, self.Pos) < QPrediction.Range - 50 then
 				WToggle = false
-				Utils:Cast(HK_Q, self.AttackTarget, QPrediction, MENU_Q_HITCHANCE + 1)
+				Utils:Cast(HK_Q, self.AttackTarget, QPrediction, MENU_Q_HITCHANCE + 1, 1)
 				WAIT_STACKS = Game.Timer() + 1
 				return
 			end
@@ -341,12 +408,12 @@ if Champion == nil and myHero.charName == "Varus" then
 		for i = 1, #enemies do
 			local enemy = enemies[i]
 			if self:QCanUp(enemy) and GGPrediction:GetDistance(enemy.pos, self.Pos) < 1545 then
-                local WStackDMG = Champion:WStackDMG()
+                local WStackDMG = Champion:WStackDMG(enemy)
 				local AR = (100 / (100 + enemy.armor))
 				local QarmD = QRawDmg * AR
 				local QDmg = math.min(QarmD, QarmD * 0.60) * (1 + qtimer / 2.5)
-				local EnemyHP = 100 * (enemy.health - QarmD) / enemy.maxHealth
-				local EnemyHP2 = 100 * (enemy.health - QDmg) / enemy.maxHealth
+				local EnemyHP = 100 * (enemy.health - QarmD + (10 * enemy.hpRegen)) / enemy.maxHealth
+				local EnemyHP2 = 100 * (enemy.health - QDmg + (4 * enemy.hpRegen)) / enemy.maxHealth
 				local MR = (100 / (100 + enemy.magicResist))
 				if canusew and EnemyHP < ((WDMG + WStackDMG + 10) * 1.16) * MR then
 					WToggle = true
@@ -355,11 +422,11 @@ if Champion == nil and myHero.charName == "Varus" then
 				end
 				local Killable = EnemyHP2 < (WStackDMG + (WDMG * 0.60) * (1 + qtimer / 4)) * MR
 				if (#aaenemies == 0 and qtimer < MENU_Q_TIME) then return end
-				local InRange = GGPrediction:GetDistance(QPrediction.CastPosition, self.Pos) < 1545
+				local InRange = GGPrediction:GetDistance(enemy.pos, self.Pos) < 1400
 				if InRange and (WToggle == true and qtimer < 2 and Killable == false) then return end
 				if GGPrediction:GetDistance(enemy.pos, self.Pos) < QPrediction.Range - 50 then
 					WToggle = false
-					Utils:Cast(HK_Q, enemy, QPrediction, MENU_Q_HITCHANCE + 1)
+					Utils:Cast(HK_Q, enemy, QPrediction, MENU_Q_HITCHANCE + 1, 1)
 					WAIT_STACKS = Game.Timer() + 1
 					return
 				end
@@ -443,7 +510,7 @@ if Champion == nil and myHero.charName == "Varus" then
 				or ASE and GG_Buff:GetBuffCount(self.AttackTarget, "varuswdebuff") == 1 and Champion:ExtraStack(self.AttackTarget) and AAtimer[self.AttackTarget.networkID] and AAtimer[self.AttackTarget.networkID] > Game.Timer()
 			)
 		then
-			if WAIT_STACKS < Game.Timer() and Utils:Cast(HK_E, self.AttackTarget, EPrediction, MENU_E_HITCHANCE + 1) then
+			if WAIT_STACKS < Game.Timer() and Utils:Cast(HK_E, self.AttackTarget, EPrediction, MENU_E_HITCHANCE + 1, 0) then
 				WAIT_STACKS = Game.Timer() + 1
 				return
 			end
@@ -461,7 +528,7 @@ if Champion == nil and myHero.charName == "Varus" then
 				or (MENU_E_SKIP_WSTACKS and self.AttackTarget == nil and GG_Buff:GetBuffCount(enemy, "varuswdebuff") == 2)
 				or (MENU_E_SKIP_WSTACKS and self.AttackTarget == nil and GG_Buff:GetBuffCount(enemy, "varuswdebuff") == 1 and Champion:ExtraStack(enemy) and AAtimer[enemy.networkID] and AAtimer[enemy.networkID] > Game.Timer())
 			then
-				if WAIT_STACKS < Game.Timer() and Utils:Cast(HK_E, enemy, EPrediction, MENU_E_HITCHANCE + 1) then
+				if WAIT_STACKS < Game.Timer() and Utils:Cast(HK_E, enemy, EPrediction, MENU_E_HITCHANCE + 1, 0) then
 					WAIT_STACKS = Game.Timer() + 1
 					break
 				end
@@ -489,7 +556,7 @@ if Champion == nil and myHero.charName == "Varus" then
 			and GGPrediction:GetDistance(self.AttackTarget.pos, self.Pos) < 900
 			and (nearToDeath or self.AttackTarget.health >= MENU_R_XEnemyHP)
 		then
-			if Utils:Cast(HK_R, self.AttackTarget, RPrediction, MENU_R_HITCHANCE + 1) then
+			if Utils:Cast(HK_R, self.AttackTarget, RPrediction, MENU_R_HITCHANCE + 1, 0) then
 				return
 			end
 		end
@@ -498,7 +565,7 @@ if Champion == nil and myHero.charName == "Varus" then
 			local enemy = enemies[i]
 			if GGPrediction:GetDistance(enemy.pos, self.Pos) < 900 then
 				if nearToDeath or (SpellsUP and enemy.health >= MENU_R_XEnemyHP and 100 * enemy.health / enemy.maxHealth < (Champion:WLevelDMG() + Champion:WStackDMG() + 10) * 1.16) then
-					if Utils:Cast(HK_R, enemy, RPrediction, MENU_R_HITCHANCE + 1) then
+					if Utils:Cast(HK_R, enemy, RPrediction, MENU_R_HITCHANCE + 1, 0) then
 						break
 					end
 				end
@@ -513,7 +580,7 @@ if Champion == nil and myHero.charName == "Varus" then
 		local enemies = Utils:GetEnemyHeroes(RPrediction.Range)
 		for i = 1, #enemies do
 			local enemy = enemies[i]
-			if Utils:Cast(HK_R, enemy, RPrediction, Menu.r_semi_hitchance:Value() + 1) then
+			if Utils:Cast(HK_R, enemy, RPrediction, Menu.r_semi_hitchance:Value() + 1, 0) then
 				break
 			end
 		end
